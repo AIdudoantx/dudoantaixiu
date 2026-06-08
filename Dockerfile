@@ -8,7 +8,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY tsconfig.json tsconfig.base.json ./
 
 COPY lib/db/package.json lib/db/tsconfig.json ./lib/db/
-COPY lib/api-spec/package.json lib/api-spec/tsconfig.json ./lib/api-spec/
+COPY lib/api-spec/package.json ./lib/api-spec/
 COPY lib/api-zod/package.json lib/api-zod/tsconfig.json ./lib/api-zod/
 COPY lib/api-client-react/package.json lib/api-client-react/tsconfig.json ./lib/api-client-react/
 COPY artifacts/api-server/package.json artifacts/api-server/tsconfig.json artifacts/api-server/build.mjs ./artifacts/api-server/
