@@ -6,7 +6,9 @@ import {
 } from "@workspace/api-client-react";
 import { Dice } from "@/components/Dice";
 import { cn } from "@/lib/utils";
-import { Activity, RefreshCw, Zap, Brain, Sparkles } from "lucide-react";
+import { Activity, RefreshCw, Zap, Brain, Bot, Sparkles } from "lucide-react";
+
+const AI_IDS = ["gemini_ai", "openai_ai"] as const;
 
 function ResultBadge({ result }: { result: "tai" | "xiu" | "bao" }) {
   return (
@@ -56,8 +58,8 @@ function PredictionPanel({
     );
   }
 
-  const aiPred = predictions.find((p) => p.id === "gemini_ai");
-  const algoPreds = predictions.filter((p) => p.id !== "gemini_ai");
+  const aiPreds = predictions.filter((p) => (AI_IDS as readonly string[]).includes(p.id));
+  const algoPreds = predictions.filter((p) => !(AI_IDS as readonly string[]).includes(p.id));
 
   // Consensus across all methods
   const allActive = predictions.filter((p) => p.prediction !== "none");
@@ -105,37 +107,44 @@ function PredictionPanel({
         </div>
       </div>
 
-      {/* Gemini AI row — highlighted */}
-      {aiPred && aiPred.aiAvailable !== false && aiPred.prediction !== "none" && (
-        <div className={cn(
-          "rounded-xl border px-3 py-2.5 flex items-center gap-3",
-          aiPred.prediction === "tai" ? "bg-red-500/10 border-red-500/30" : "bg-blue-500/10 border-blue-500/30"
-        )}>
-          <Brain size={14} className={aiPred.prediction === "tai" ? "text-red-400" : "text-blue-400"} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Gemini AI</span>
-              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400">✦ AI</span>
+      {/* AI rows */}
+      {aiPreds.map((aiPred) => {
+        const isGemini = aiPred.id === "gemini_ai";
+        const IconComp = isGemini ? Brain : Bot;
+        const badgeColor = isGemini ? "bg-violet-500/10 border-violet-500/20 text-violet-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400";
+        const aiLabel = isGemini ? "Gemini AI" : "OpenAI GPT-4o";
+        const keyName = isGemini ? "GEMINI_API_KEY" : "OPENAI_API_KEY";
+        if (aiPred.aiAvailable !== false && aiPred.prediction !== "none") {
+          return (
+            <div key={aiPred.id} className={cn(
+              "rounded-xl border px-3 py-2.5 flex items-center gap-3",
+              aiPred.prediction === "tai" ? "bg-red-500/10 border-red-500/30" : "bg-blue-500/10 border-blue-500/30"
+            )}>
+              <IconComp size={14} className={aiPred.prediction === "tai" ? "text-red-400" : "text-blue-400"} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">{aiLabel}</span>
+                  <span className={cn("text-[9px] font-mono px-1.5 py-0.5 rounded-full border", badgeColor)}>✦ AI</span>
+                </div>
+                {aiPred.reasoning && (
+                  <p className={cn("text-[10px] font-mono leading-relaxed truncate mt-0.5", aiPred.prediction === "tai" ? "text-red-300/80" : "text-blue-300/80")}>
+                    {aiPred.reasoning}
+                  </p>
+                )}
+              </div>
+              <div className={cn("text-lg font-bold font-mono", aiPred.prediction === "tai" ? "text-red-400" : "text-blue-400")}>
+                {aiPred.prediction === "tai" ? "TÀI" : "XỈU"}
+              </div>
             </div>
-            {aiPred.reasoning && (
-              <p className={cn("text-[10px] font-mono leading-relaxed truncate mt-0.5", aiPred.prediction === "tai" ? "text-red-300/80" : "text-blue-300/80")}>
-                {aiPred.reasoning}
-              </p>
-            )}
+          );
+        }
+        return (
+          <div key={aiPred.id} className="rounded-xl border px-3 py-2 flex items-center gap-2 bg-muted/10 border-border/30">
+            <IconComp size={13} className="text-muted-foreground/40" />
+            <span className="text-[10px] font-mono text-muted-foreground/50">{aiLabel} chưa bật — vào ⚙ Cài Đặt → thêm {keyName}</span>
           </div>
-          <div className={cn("text-lg font-bold font-mono font-semibold", aiPred.prediction === "tai" ? "text-red-400" : "text-blue-400")}>
-            {aiPred.prediction === "tai" ? "TÀI" : "XỈU"}
-          </div>
-        </div>
-      )}
-
-      {/* Not configured AI notice */}
-      {aiPred && aiPred.aiAvailable === false && (
-        <div className="rounded-xl border px-3 py-2 flex items-center gap-2 bg-muted/10 border-border/30">
-          <Brain size={13} className="text-muted-foreground/40" />
-          <span className="text-[10px] font-mono text-muted-foreground/50">Gemini AI chưa bật — vào ⚙ Cài Đặt để thêm key</span>
-        </div>
-      )}
+        );
+      })}
 
       {/* Algo methods row */}
       <div className="flex gap-2">

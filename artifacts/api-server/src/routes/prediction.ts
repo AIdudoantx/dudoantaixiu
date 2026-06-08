@@ -32,6 +32,7 @@ import { sql } from "drizzle-orm";
 import { GetTaixiuPredictionQueryParams, GetTaixiuPredictionResponse } from "@workspace/api-zod";
 import { db, taixiuSessions } from "@workspace/db";
 import { getGeminiPrediction } from "./gemini-prediction";
+import { getOpenAIPrediction } from "./openai-prediction";
 
 const router: IRouter = Router();
 
@@ -567,11 +568,14 @@ router.get("/taixiu/prediction", async (req, res): Promise<void> => {
   // Method 4 (Gemini AI) runs in parallel — uses DB internally via getGeminiPrediction.
   const freshSessions: Session[] = fresh.length > 0 ? fresh : sessions;
 
-  const [m4] = await Promise.all([getGeminiPrediction(type)]);
+  const [m4, m5] = await Promise.all([getGeminiPrediction(type), getOpenAIPrediction(type)]);
 
   const m1 = predictDieTracking(freshSessions);
   const m2 = predictBatCau(sessions);
   const m3 = predictCycleRhythm(sessions);
+
+  const aiConf = (c: "LOW" | "MEDIUM" | "HIGH") =>
+    c === "HIGH" ? 0.82 : c === "MEDIUM" ? 0.68 : 0.45;
 
   const response = {
     gameType: type,
@@ -617,14 +621,28 @@ router.get("/taixiu/prediction", async (req, res): Promise<void> => {
         name: "Gemini AI",
         nameVi: "Phân Tích Thông Minh Gemini",
         description: m4.available
-          ? `AI phân tích 60 phiên gần nhất và dự đoán: ${m4.prediction === "tai" ? "TÀI" : "XỈU"}.`
+          ? `Gemini phân tích 60 phiên và dự đoán: ${m4.prediction === "tai" ? "TÀI" : "XỈU"}.`
           : (m4.message ?? "Chưa cấu hình GEMINI_API_KEY trong Settings."),
         prediction: m4.prediction,
-        confidence: m4.confidence === "HIGH" ? 0.82 : m4.confidence === "MEDIUM" ? 0.68 : 0.45,
+        confidence: aiConf(m4.confidence),
         predictedSum: undefined,
         predictedDice: undefined,
         reasoning: m4.reasoning || null,
         aiAvailable: m4.available,
+      },
+      {
+        id: "openai_ai",
+        name: "OpenAI",
+        nameVi: "Phân Tích Thông Minh GPT-4o",
+        description: m5.available
+          ? `GPT-4o phân tích 60 phiên và dự đoán: ${m5.prediction === "tai" ? "TÀI" : "XỈU"}.`
+          : (m5.message ?? "Chưa cấu hình OPENAI_API_KEY trong Settings."),
+        prediction: m5.prediction,
+        confidence: aiConf(m5.confidence),
+        predictedSum: undefined,
+        predictedDice: undefined,
+        reasoning: m5.reasoning || null,
+        aiAvailable: m5.available,
       },
     ],
   };
