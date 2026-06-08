@@ -20,10 +20,22 @@ RUN pnpm install --frozen-lockfile
 
 COPY lib/ ./lib/
 COPY artifacts/api-server/src/ ./artifacts/api-server/src/
+COPY artifacts/taixiu-analyzer/src/ ./artifacts/taixiu-analyzer/src/
+COPY artifacts/taixiu-analyzer/index.html ./artifacts/taixiu-analyzer/
+COPY artifacts/taixiu-analyzer/vite.config.ts ./artifacts/taixiu-analyzer/
+COPY artifacts/taixiu-analyzer/tsconfig.json ./artifacts/taixiu-analyzer/
 COPY scripts/ ./scripts/
 
 ENV NODE_ENV=production
+
+# Build frontend (output → artifacts/taixiu-analyzer/dist/public)
+RUN PORT=3000 BASE_PATH=/ pnpm --filter @workspace/taixiu-analyzer run build
+
+# Build API server (output → artifacts/api-server/dist)
 RUN pnpm --filter @workspace/api-server run build
+
+# Copy frontend dist into API server dist/public so Express can serve it
+RUN cp -r artifacts/taixiu-analyzer/dist/public artifacts/api-server/dist/public
 
 FROM node:24-slim
 
