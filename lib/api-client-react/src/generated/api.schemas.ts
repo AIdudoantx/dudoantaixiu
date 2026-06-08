@@ -161,6 +161,8 @@ export interface PredictionItem {
   confidence: number;
   predictedSum?: number;
   predictedDice?: number[];
+  reasoning?: string | null;
+  aiAvailable?: boolean | null;
 }
 
 export type PredictionResponseGameType = typeof PredictionResponseGameType[keyof typeof PredictionResponseGameType];

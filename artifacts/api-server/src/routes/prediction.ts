@@ -31,6 +31,7 @@ import { Router, type IRouter } from "express";
 import { sql } from "drizzle-orm";
 import { GetTaixiuPredictionQueryParams, GetTaixiuPredictionResponse } from "@workspace/api-zod";
 import { db, taixiuSessions } from "@workspace/db";
+import { getGeminiPrediction } from "./gemini-prediction";
 
 const router: IRouter = Router();
 
@@ -562,11 +563,13 @@ router.get("/taixiu/prediction", async (req, res): Promise<void> => {
   const sessions: Session[] =
     historical.length >= fresh.length ? historical : fresh;
 
-  // Method 1: die tracking — needs accurate dice data (fresh API, newest first)
+  // Method 1 needs accurate dice data (fresh API); methods 2 & 3 use full history.
+  // Method 4 (Gemini AI) runs in parallel — uses DB internally via getGeminiPrediction.
   const freshSessions: Session[] = fresh.length > 0 ? fresh : sessions;
-  const m1 = predictDieTracking(freshSessions);
 
-  // Method 2 & 3 benefit from larger historical pool
+  const [m4] = await Promise.all([getGeminiPrediction(type)]);
+
+  const m1 = predictDieTracking(freshSessions);
   const m2 = predictBatCau(sessions);
   const m3 = predictCycleRhythm(sessions);
 
@@ -575,13 +578,15 @@ router.get("/taixiu/prediction", async (req, res): Promise<void> => {
     predictions: [
       {
         id: "die_tracking",
-        name: "Theo Xúc Xắc",
+        name: "Xúc Xắc",
         nameVi: "Theo Dõi Từng Xúc Xắc",
         description: m1.description,
         prediction: m1.prediction,
         confidence: m1.confidence,
         predictedSum: m1.predictedSum,
         predictedDice: m1.predictedDice,
+        reasoning: null,
+        aiAvailable: null,
       },
       {
         id: "bat_cau",
@@ -592,16 +597,34 @@ router.get("/taixiu/prediction", async (req, res): Promise<void> => {
         confidence: m2.confidence,
         predictedSum: undefined,
         predictedDice: undefined,
+        reasoning: null,
+        aiAvailable: null,
       },
       {
         id: "cycle_rhythm",
-        name: "Nhịp Chu Kỳ",
+        name: "Chu Kỳ",
         nameVi: "Phân Tích Nhịp Chu Kỳ",
         description: m3.description,
         prediction: m3.prediction,
         confidence: m3.confidence,
         predictedSum: undefined,
         predictedDice: undefined,
+        reasoning: null,
+        aiAvailable: null,
+      },
+      {
+        id: "gemini_ai",
+        name: "Gemini AI",
+        nameVi: "Phân Tích Thông Minh Gemini",
+        description: m4.available
+          ? `AI phân tích 60 phiên gần nhất và dự đoán: ${m4.prediction === "tai" ? "TÀI" : "XỈU"}.`
+          : (m4.message ?? "Chưa cấu hình GEMINI_API_KEY trong Settings."),
+        prediction: m4.prediction,
+        confidence: m4.confidence === "HIGH" ? 0.82 : m4.confidence === "MEDIUM" ? 0.68 : 0.45,
+        predictedSum: undefined,
+        predictedDice: undefined,
+        reasoning: m4.reasoning || null,
+        aiAvailable: m4.available,
       },
     ],
   };

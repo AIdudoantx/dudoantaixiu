@@ -6,7 +6,7 @@ import {
 } from "@workspace/api-client-react";
 import { Dice } from "@/components/Dice";
 import { cn } from "@/lib/utils";
-import { Activity, RefreshCw, Zap, Brain } from "lucide-react";
+import { Activity, RefreshCw, Zap, Brain, Sparkles } from "lucide-react";
 
 function ResultBadge({ result }: { result: "tai" | "xiu" | "bao" }) {
   return (
@@ -24,11 +24,7 @@ function ResultBadge({ result }: { result: "tai" | "xiu" | "bao" }) {
 type Side = "tai" | "xiu" | "none";
 
 function sideColor(s: Side) {
-  return s === "tai"
-    ? "text-red-400"
-    : s === "xiu"
-    ? "text-blue-400"
-    : "text-muted-foreground";
+  return s === "tai" ? "text-red-400" : s === "xiu" ? "text-blue-400" : "text-muted-foreground";
 }
 function sideBg(s: Side) {
   return s === "tai"
@@ -45,7 +41,7 @@ function PredictionPanel({
 }: {
   label: string;
   accent: string;
-  predictions?: Array<{ id: string; name: string; nameVi: string; prediction: Side; confidence: number }>;
+  predictions?: Array<{ id: string; name: string; nameVi: string; prediction: Side; confidence: number; reasoning?: string | null; aiAvailable?: boolean | null }>;
 }) {
   if (!predictions) {
     return (
@@ -60,31 +56,31 @@ function PredictionPanel({
     );
   }
 
-  // Consensus
-  const taiVotes = predictions.filter((p) => p.prediction === "tai");
-  const xiuVotes = predictions.filter((p) => p.prediction === "xiu");
+  const aiPred = predictions.find((p) => p.id === "gemini_ai");
+  const algoPreds = predictions.filter((p) => p.id !== "gemini_ai");
+
+  // Consensus across all methods
+  const allActive = predictions.filter((p) => p.prediction !== "none");
+  const taiVotes = allActive.filter((p) => p.prediction === "tai");
+  const xiuVotes = allActive.filter((p) => p.prediction === "xiu");
   const taiScore = taiVotes.reduce((s, p) => s + p.confidence, 0);
   const xiuScore = xiuVotes.reduce((s, p) => s + p.confidence, 0);
   const winner: Side =
-    taiVotes.length > xiuVotes.length
-      ? "tai"
-      : xiuVotes.length > taiVotes.length
-      ? "xiu"
-      : taiScore > xiuScore
-      ? "tai"
-      : "none";
+    taiVotes.length > xiuVotes.length ? "tai" :
+    xiuVotes.length > taiVotes.length ? "xiu" :
+    taiScore > xiuScore ? "tai" : "none";
 
   const avgConf =
-    predictions.filter((p) => p.prediction === winner).reduce((s, p) => s + p.confidence, 0) /
-    Math.max(predictions.filter((p) => p.prediction === winner).length, 1);
+    allActive.filter((p) => p.prediction === winner).reduce((s, p) => s + p.confidence, 0) /
+    Math.max(allActive.filter((p) => p.prediction === winner).length, 1);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-card/60 border border-border/50 rounded-2xl p-5 backdrop-blur-sm"
+      className="bg-card/60 border border-border/50 rounded-2xl p-5 backdrop-blur-sm space-y-3"
     >
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between">
         <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">{label}</div>
         <span className={cn("text-xs font-mono font-semibold px-2 py-0.5 rounded-full border", accent)}>
           DỰ ĐOÁN
@@ -92,9 +88,9 @@ function PredictionPanel({
       </div>
 
       {/* Consensus big result */}
-      <div className={cn("rounded-xl p-4 border mb-3 flex items-center justify-between", sideBg(winner))}>
+      <div className={cn("rounded-xl p-4 border flex items-center justify-between", sideBg(winner))}>
         <div>
-          <div className="text-xs text-muted-foreground mb-1">Đồng thuận 3 PP</div>
+          <div className="text-xs text-muted-foreground mb-1">Đồng thuận {allActive.length} PP</div>
           <div className={cn("text-3xl font-bold font-mono", sideColor(winner))}>
             {winner === "tai" ? "TÀI" : winner === "xiu" ? "XỈU" : "—"}
           </div>
@@ -109,15 +105,44 @@ function PredictionPanel({
         </div>
       </div>
 
-      {/* Per-method row */}
+      {/* Gemini AI row — highlighted */}
+      {aiPred && aiPred.aiAvailable !== false && aiPred.prediction !== "none" && (
+        <div className={cn(
+          "rounded-xl border px-3 py-2.5 flex items-center gap-3",
+          aiPred.prediction === "tai" ? "bg-red-500/10 border-red-500/30" : "bg-blue-500/10 border-blue-500/30"
+        )}>
+          <Brain size={14} className={aiPred.prediction === "tai" ? "text-red-400" : "text-blue-400"} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Gemini AI</span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400">✦ AI</span>
+            </div>
+            {aiPred.reasoning && (
+              <p className={cn("text-[10px] font-mono leading-relaxed truncate mt-0.5", aiPred.prediction === "tai" ? "text-red-300/80" : "text-blue-300/80")}>
+                {aiPred.reasoning}
+              </p>
+            )}
+          </div>
+          <div className={cn("text-lg font-bold font-mono font-semibold", aiPred.prediction === "tai" ? "text-red-400" : "text-blue-400")}>
+            {aiPred.prediction === "tai" ? "TÀI" : "XỈU"}
+          </div>
+        </div>
+      )}
+
+      {/* Not configured AI notice */}
+      {aiPred && aiPred.aiAvailable === false && (
+        <div className="rounded-xl border px-3 py-2 flex items-center gap-2 bg-muted/10 border-border/30">
+          <Brain size={13} className="text-muted-foreground/40" />
+          <span className="text-[10px] font-mono text-muted-foreground/50">Gemini AI chưa bật — vào ⚙ Cài Đặt để thêm key</span>
+        </div>
+      )}
+
+      {/* Algo methods row */}
       <div className="flex gap-2">
-        {predictions.map((p) => (
+        {algoPreds.map((p) => (
           <div
             key={p.id}
-            className={cn(
-              "flex-1 rounded-lg p-2.5 border text-center",
-              sideBg(p.prediction),
-            )}
+            className={cn("flex-1 rounded-lg p-2.5 border text-center", sideBg(p.prediction))}
           >
             <div className="text-[9px] text-muted-foreground uppercase tracking-wider truncate mb-1">
               {p.name}
@@ -165,7 +190,9 @@ export default function Dashboard() {
       {/* Prediction panels */}
       <div>
         <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
-          <Brain size={12} className="text-primary" /> Dự Đoán Phiên Tiếp Theo
+          <Brain size={12} className="text-primary" />
+          <Sparkles size={12} className="text-violet-400" />
+          Dự Đoán AI + 3 Phương Pháp
         </div>
         <div className="grid md:grid-cols-2 gap-4">
           <PredictionPanel

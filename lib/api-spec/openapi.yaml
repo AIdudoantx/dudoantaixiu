@@ -378,6 +378,12 @@ components:
           type: array
           items:
             type: integer
+        reasoning:
+          type: string
+          nullable: true
+        aiAvailable:
+          type: boolean
+          nullable: true
 
     PredictionResponse:
       type: object

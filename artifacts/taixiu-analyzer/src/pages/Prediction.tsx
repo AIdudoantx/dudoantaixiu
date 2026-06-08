@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { useGetTaixiuPrediction, useGetTaixiuAiAnalysis } from "@workspace/api-client-react";
+import { useGetTaixiuPrediction } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-import { Dice1, Layers, RefreshCw, Target, TrendingUp, ChevronDown, ChevronUp, Brain, Sparkles } from "lucide-react";
+import { Dice1, Layers, RefreshCw, Target, TrendingUp, Brain, Sparkles, AlertCircle } from "lucide-react";
 
 const METHOD_ICONS = {
   die_tracking: Dice1,
   bat_cau: Layers,
   cycle_rhythm: TrendingUp,
+  gemini_ai: Brain,
 };
 
 const METHOD_COLOR = {
@@ -16,27 +17,113 @@ const METHOD_COLOR = {
   none: { bg: "bg-muted/20",    border: "border-border/50",   text: "text-muted-foreground", bar: "bg-muted" },
 };
 
-const CONF_COLOR: Record<string, string> = {
-  LOW: "text-muted-foreground",
-  MEDIUM: "text-amber-400",
-  HIGH: "text-emerald-400",
-};
+// ── AI (Gemini) card — hero treatment ─────────────────────────────────
 
-// ── Method card ──────────────────────────────────────────────────────
-
-function PredictionCard({
-  item,
-  index,
-}: {
+function GeminiCard({ item, index }: {
   item: {
-    id: string;
-    name: string;
-    nameVi: string;
-    description: string;
-    prediction: "tai" | "xiu" | "none";
-    confidence: number;
-    predictedSum?: number | null;
-    predictedDice?: number[] | null;
+    id: string; name: string; nameVi: string; description: string;
+    prediction: "tai" | "xiu" | "none"; confidence: number;
+    reasoning?: string | null; aiAvailable?: boolean | null;
+  };
+  index: number;
+}) {
+  const c = METHOD_COLOR[item.prediction];
+  const conf = Math.round(item.confidence * 100);
+  const available = item.aiAvailable !== false;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.08 }}
+      className={cn(
+        "rounded-2xl border-2 p-6 space-y-4 shadow-lg",
+        available ? cn(c.bg, c.border) : "bg-muted/10 border-border/40"
+      )}
+    >
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2.5 rounded-xl border-2", available ? cn(c.bg, c.border) : "bg-muted/20 border-border/40")}>
+            <Brain size={20} className={available ? c.text : "text-muted-foreground"} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-base font-bold font-mono">Gemini AI</span>
+              <span className={cn(
+                "text-[10px] font-mono px-2 py-0.5 rounded-full border",
+                available
+                  ? "bg-violet-500/10 border-violet-500/30 text-violet-400"
+                  : "bg-muted/30 border-border/40 text-muted-foreground"
+              )}>
+                {available ? "✦ AI THỰC SỰ" : "CHƯA BẬT"}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground font-mono mt-0.5">{item.nameVi}</div>
+          </div>
+        </div>
+
+        {available && item.prediction !== "none" && (
+          <div className={cn("text-center px-5 py-2.5 rounded-xl border-2", c.bg, c.border)}>
+            <div className="text-[10px] text-muted-foreground font-mono mb-0.5">DỰ ĐOÁN AI</div>
+            <div className={cn("text-3xl font-bold font-mono", c.text)}>
+              {item.prediction === "tai" ? "TÀI" : "XỈU"}
+            </div>
+            <div className={cn("text-xs font-mono font-semibold mt-0.5", c.text)}>{conf}% tin cậy</div>
+          </div>
+        )}
+      </div>
+
+      {available && item.reasoning && (
+        <div className={cn("rounded-xl border p-4 space-y-1", c.bg, c.border)}>
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono uppercase tracking-widest">
+            <Sparkles size={10} />
+            Phân tích của Gemini AI
+          </div>
+          <p className={cn("text-sm font-mono leading-relaxed", c.text)}>{item.reasoning}</p>
+        </div>
+      )}
+
+      {available && (
+        <div className="space-y-1.5">
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-muted-foreground font-mono">Độ tin cậy AI</span>
+            <span className={cn("text-sm font-bold font-mono", c.text)}>
+              {item.prediction !== "none" ? `${conf}%` : "Không đủ dữ liệu"}
+            </span>
+          </div>
+          <div className="h-2.5 bg-muted/40 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: item.prediction !== "none" ? `${conf}%` : 0 }}
+              transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
+              className={cn("h-full rounded-full", c.bar)}
+            />
+          </div>
+        </div>
+      )}
+
+      {!available && (
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+          <AlertCircle size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
+          <div className="text-xs font-mono text-muted-foreground leading-relaxed">
+            <span className="text-amber-400 font-semibold">Chưa cấu hình:</span> {item.description}
+            <div className="mt-1.5 text-[10px] opacity-70">
+              Vào <span className="text-foreground">⚙ Cài Đặt</span> → nhập <code className="bg-muted px-1 rounded">GEMINI_API_KEY</code> để bật AI dự đoán thực sự.
+            </div>
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ── Regular method card ───────────────────────────────────────────────
+
+function PredictionCard({ item, index }: {
+  item: {
+    id: string; name: string; nameVi: string; description: string;
+    prediction: "tai" | "xiu" | "none"; confidence: number;
+    predictedSum?: number | null; predictedDice?: number[] | null;
   };
   index: number;
 }) {
@@ -49,81 +136,61 @@ function PredictionCard({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.08 }}
-      className={cn("rounded-2xl border p-6 space-y-4", c.bg, c.border)}
+      className={cn("rounded-2xl border p-5 space-y-4", c.bg, c.border)}
     >
       <div className="flex items-start gap-3">
         <div className={cn("p-2 rounded-xl border", c.bg, c.border)}>
-          <Icon size={18} className={c.text} />
+          <Icon size={16} className={c.text} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
-              Phương Pháp {index + 1}
-            </span>
-            <span className={cn("text-xs font-mono px-2 py-0.5 rounded border", c.bg, c.border, c.text)}>
-              {item.name}
-            </span>
-          </div>
-          <div className="text-base font-semibold font-mono mt-0.5">{item.nameVi}</div>
+          <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">PP {index + 1}</div>
+          <div className="text-sm font-semibold font-mono mt-0.5">{item.nameVi}</div>
         </div>
-      </div>
-
-      <div className="flex items-center gap-6">
-        <div className="text-center">
-          <div className="text-xs text-muted-foreground mb-1 font-mono">Dự đoán</div>
-          <div className={cn("text-4xl font-bold font-mono", c.text)}>
+        <div className="text-right">
+          <div className={cn("text-2xl font-bold font-mono", c.text)}>
             {item.prediction === "tai" ? "TÀI" : item.prediction === "xiu" ? "XỈU" : "---"}
           </div>
-        </div>
-
-        {item.predictedDice && item.predictedDice.length === 3 && (
-          <div className="flex-1">
-            <div className="text-xs text-muted-foreground mb-2 font-mono">Xúc xắc dự đoán</div>
-            <div className="flex gap-2 items-center">
-              {item.predictedDice.map((d, i) => (
-                <div key={i} className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold font-mono border", c.bg, c.border, c.text)}>
-                  {d}
-                </div>
-              ))}
-              {item.predictedSum != null && (
-                <div className="ml-2 text-2xl font-bold font-mono text-muted-foreground">
-                  = <span className={c.text}>{item.predictedSum}</span>
-                </div>
-              )}
-            </div>
+          <div className="text-[10px] text-muted-foreground font-mono">
+            {item.prediction !== "none" ? `${Math.round(item.confidence * 100)}%` : "—"}
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="space-y-1.5">
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-muted-foreground font-mono">Độ tin cậy</span>
-          <span className={cn("text-sm font-bold font-mono", c.text)}>
-            {item.prediction !== "none" ? `${Math.round(item.confidence * 100)}%` : "Không đủ dữ liệu"}
-          </span>
+      {item.predictedDice && item.predictedDice.length === 3 && (
+        <div className="flex gap-2 items-center">
+          {item.predictedDice.map((d, i) => (
+            <div key={i} className={cn("w-9 h-9 rounded-lg flex items-center justify-center text-base font-bold font-mono border", c.bg, c.border, c.text)}>
+              {d}
+            </div>
+          ))}
+          {item.predictedSum != null && (
+            <div className="ml-1 text-lg font-bold font-mono text-muted-foreground">
+              = <span className={c.text}>{item.predictedSum}</span>
+            </div>
+          )}
         </div>
-        <div className="h-2 bg-muted/40 rounded-full overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: item.prediction !== "none" ? `${Math.round(item.confidence * 100)}%` : 0 }}
-            transition={{ duration: 0.8, ease: "easeOut", delay: index * 0.1 + 0.2 }}
-            className={cn("h-full rounded-full", c.bar)}
-          />
-        </div>
+      )}
+
+      <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: item.prediction !== "none" ? `${Math.round(item.confidence * 100)}%` : 0 }}
+          transition={{ duration: 0.8, ease: "easeOut", delay: index * 0.1 + 0.2 }}
+          className={cn("h-full rounded-full", c.bar)}
+        />
       </div>
 
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
+        className="text-[10px] text-muted-foreground hover:text-foreground transition-colors font-mono"
       >
-        {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-        {expanded ? "Ẩn" : "Cách tính"}
+        {expanded ? "▲ Ẩn chi tiết" : "▼ Xem cách tính"}
       </button>
       {expanded && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
-          className="text-xs text-muted-foreground font-mono leading-relaxed border-t border-border/30 pt-3"
+          className="text-[10px] text-muted-foreground font-mono leading-relaxed border-t border-border/30 pt-3"
         >
           {item.description}
         </motion.div>
@@ -132,33 +199,37 @@ function PredictionCard({
   );
 }
 
-// ── Consensus banner ─────────────────────────────────────────────────
+// ── Consensus banner ──────────────────────────────────────────────────
 
-function ConsensusBadge({ predictions }: { predictions: Array<{ prediction: "tai" | "xiu" | "none"; confidence: number }> }) {
-  const taiCount = predictions.filter((p) => p.prediction === "tai").length;
-  const xiuCount = predictions.filter((p) => p.prediction === "xiu").length;
-  const taiScore = predictions.filter((p) => p.prediction === "tai").reduce((s, p) => s + p.confidence, 0);
-  const xiuScore = predictions.filter((p) => p.prediction === "xiu").reduce((s, p) => s + p.confidence, 0);
+function ConsensusBadge({ predictions }: { predictions: Array<{ prediction: "tai" | "xiu" | "none"; confidence: number; id: string }> }) {
+  const all = predictions.filter((p) => p.prediction !== "none");
+  const taiCount = all.filter((p) => p.prediction === "tai").length;
+  const xiuCount = all.filter((p) => p.prediction === "xiu").length;
+  const taiScore = all.filter((p) => p.prediction === "tai").reduce((s, p) => s + p.confidence, 0);
+  const xiuScore = all.filter((p) => p.prediction === "xiu").reduce((s, p) => s + p.confidence, 0);
   const winner = taiCount > xiuCount ? "tai" : xiuCount > taiCount ? "xiu" : taiScore > xiuScore ? "tai" : "none";
   const c = METHOD_COLOR[winner];
 
   return (
-    <div className={cn("rounded-2xl border p-6 text-center space-y-2", c.bg, c.border)}>
+    <div className={cn("rounded-2xl border-2 p-6 text-center space-y-3", c.bg, c.border)}>
       <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
-        Đồng Thuận 3 Phương Pháp
+        Đồng Thuận {all.length}/4 Phương Pháp (gồm AI)
       </div>
-      <div className={cn("text-5xl font-bold font-mono", c.text)}>
+      <div className={cn("text-6xl font-bold font-mono", c.text)}>
         {winner === "tai" ? "TÀI" : winner === "xiu" ? "XỈU" : "---"}
       </div>
-      <div className="flex justify-center gap-3 text-xs font-mono text-muted-foreground">
-        <span className="text-red-400">{taiCount}/3 phương pháp TÀI</span>
-        <span>·</span>
-        <span className="text-blue-400">{xiuCount}/3 phương pháp XỈU</span>
+      <div className="flex justify-center gap-4 text-sm font-mono">
+        <span className="text-red-400 font-semibold">{taiCount} TÀI</span>
+        <span className="text-muted-foreground">·</span>
+        <span className="text-blue-400 font-semibold">{xiuCount} XỈU</span>
       </div>
-      <div className="flex justify-center gap-2 pt-1">
-        {predictions.map((p, i) => (
-          <div key={i} className={cn("w-8 h-8 rounded-lg border flex items-center justify-center text-xs font-bold font-mono", METHOD_COLOR[p.prediction].bg, METHOD_COLOR[p.prediction].border, METHOD_COLOR[p.prediction].text)}>
-            {p.prediction === "tai" ? "T" : p.prediction === "xiu" ? "X" : "·"}
+      <div className="flex justify-center gap-2 pt-1 flex-wrap">
+        {predictions.map((p) => (
+          <div key={p.id} className={cn(
+            "px-3 py-1 rounded-lg border text-xs font-bold font-mono",
+            METHOD_COLOR[p.prediction].bg, METHOD_COLOR[p.prediction].border, METHOD_COLOR[p.prediction].text
+          )}>
+            {p.id === "gemini_ai" ? "🤖 " : ""}{p.prediction === "tai" ? "TÀI" : p.prediction === "xiu" ? "XỈU" : "·"}
           </div>
         ))}
       </div>
@@ -166,99 +237,22 @@ function ConsensusBadge({ predictions }: { predictions: Array<{ prediction: "tai
   );
 }
 
-// ── AI Analysis panel ────────────────────────────────────────────────
-
-function AiPanel({ gameType }: { gameType: "tx" | "md5" }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, isLoading, refetch, isFetching } = useGetTaixiuAiAnalysis({ type: gameType }, { query: { staleTime: 60000 } as any });
-
-  const predColor = data?.prediction === "tai" ? METHOD_COLOR.tai : data?.prediction === "xiu" ? METHOD_COLOR.xiu : METHOD_COLOR.none;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
-      className="rounded-2xl border border-primary/20 bg-primary/5 p-6 space-y-4"
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Brain size={16} className="text-primary" />
-          <span className="text-sm font-semibold font-mono">Phân Tích AI (GPT)</span>
-          <span className="text-xs px-2 py-0.5 rounded border border-primary/30 text-primary font-mono">BETA</span>
-        </div>
-        <button
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors font-mono"
-        >
-          <Sparkles size={12} className={isFetching ? "animate-spin" : ""} />
-          {isFetching ? "Đang phân tích..." : "Phân tích lại"}
-        </button>
-      </div>
-
-      {isLoading && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
-          Đang kết nối AI...
-        </div>
-      )}
-
-      {data && !data.available && (
-        <div className="text-xs text-muted-foreground font-mono leading-relaxed p-3 rounded-xl bg-muted/20 border border-border/50">
-          <span className="text-amber-400 font-semibold">⚠ Chưa bật:</span> {data.message}
-          <div className="mt-2 text-[10px] opacity-60">
-            Thêm <code className="bg-muted px-1 rounded">OPENAI_API_KEY</code> vào Replit Secrets → tab 🔒 bên trái.
-          </div>
-        </div>
-      )}
-
-      {data?.available && data.analysis && (
-        <div className="space-y-3">
-          <div className="flex items-start gap-4">
-            <div className={cn("text-center px-4 py-3 rounded-xl border min-w-[90px]", predColor.bg, predColor.border)}>
-              <div className="text-[10px] text-muted-foreground font-mono mb-1">AI DỰ ĐOÁN</div>
-              <div className={cn("text-2xl font-bold font-mono", predColor.text)}>
-                {data.prediction === "tai" ? "TÀI" : data.prediction === "xiu" ? "XỈU" : "—"}
-              </div>
-              <div className={cn("text-xs font-mono mt-1 font-semibold", CONF_COLOR[data.confidence])}>
-                {data.confidence}
-              </div>
-            </div>
-            <div className="flex-1 text-xs text-muted-foreground font-mono leading-relaxed">
-              {data.analysis}
-            </div>
-          </div>
-
-          {data.reasoning && (
-            <div className="text-[11px] text-primary/70 font-mono border-t border-primary/10 pt-3">
-              💡 {data.reasoning}
-            </div>
-          )}
-        </div>
-      )}
-
-      {data?.available && !data.analysis && data.message && (
-        <div className="text-xs text-muted-foreground font-mono">{data.message}</div>
-      )}
-    </motion.div>
-  );
-}
-
-// ── Main page ────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────
 
 export default function Prediction() {
   const [gameType, setGameType] = useState<"tx" | "md5">("tx");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, isLoading, refetch, isFetching } = useGetTaixiuPrediction({ type: gameType }, { query: { refetchInterval: 15000 } as any });
 
+  const regularMethods = data?.predictions.filter((p) => p.id !== "gemini_ai") ?? [];
+  const aiMethod = data?.predictions.find((p) => p.id === "gemini_ai");
+
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold font-mono">Dự Đoán 3 Phương Pháp</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Theo xúc xắc · Bắt cầu · Nhịp chu kỳ</p>
+          <h1 className="text-2xl font-bold font-mono">Dự Đoán AI + 3 Phương Pháp</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Gemini AI · Xúc xắc · Bắt cầu · Chu kỳ</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -288,22 +282,23 @@ export default function Prediction() {
       {isLoading && (
         <div className="flex items-center gap-3 text-muted-foreground font-mono text-sm">
           <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-          Đang tính toán 3 phương pháp...
+          Đang phân tích AI + 3 phương pháp...
         </div>
       )}
 
       {data && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           <ConsensusBadge predictions={data.predictions} />
 
+          {/* Gemini AI — hero card full width */}
+          {aiMethod && <GeminiCard item={aiMethod} index={0} />}
+
+          {/* 3 algorithmic methods */}
           <div className="grid md:grid-cols-3 gap-4">
-            {data.predictions.map((item, i) => (
+            {regularMethods.map((item, i) => (
               <PredictionCard key={item.id} item={item} index={i} />
             ))}
           </div>
-
-          {/* AI Analysis */}
-          <AiPanel gameType={gameType} />
 
           <p className="text-center text-xs text-muted-foreground font-mono">
             Tự động cập nhật mỗi 15 giây · Chỉ để tham khảo

@@ -189,7 +189,9 @@ export const GetTaixiuPredictionResponse = zod.object({
   "prediction": zod.enum(['tai', 'xiu', 'none']),
   "confidence": zod.number(),
   "predictedSum": zod.number().optional(),
-  "predictedDice": zod.array(zod.number()).optional()
+  "predictedDice": zod.array(zod.number()).optional(),
+  "reasoning": zod.string().nullish(),
+  "aiAvailable": zod.boolean().nullish()
 }))
 })
 

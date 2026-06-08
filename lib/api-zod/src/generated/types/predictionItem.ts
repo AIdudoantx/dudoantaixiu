@@ -16,4 +16,6 @@ export interface PredictionItem {
   confidence: number;
   predictedSum?: number;
   predictedDice?: number[];
+  reasoning?: string | null;
+  aiAvailable?: boolean | null;
 }
