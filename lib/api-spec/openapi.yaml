@@ -1,22 +1,23 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Tài Xỉu Analyzer API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: taixiu
+    description: Tài Xỉu game analysis
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +25,189 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /taixiu/history:
+    get:
+      operationId: getTaixiuHistory
+      tags: [taixiu]
+      summary: Get recent session history with Tài/Xỉu results
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [tx, md5]
+            default: tx
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Session history list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionResult"
+
+  /taixiu/stats:
+    get:
+      operationId: getTaixiuStats
+      tags: [taixiu]
+      summary: Get aggregated statistics for both game types
+      responses:
+        "200":
+          description: Statistics summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaixiuStats"
+
+  /taixiu/pattern:
+    get:
+      operationId: getTaixiuPattern
+      tags: [taixiu]
+      summary: Get streak, pattern and trend analysis
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [tx, md5]
+            default: tx
+      responses:
+        "200":
+          description: Pattern analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatternAnalysis"
+
+  /taixiu/ai-analysis:
+    get:
+      operationId: getTaixiuAiAnalysis
+      tags: [taixiu]
+      summary: AI analysis of recent game patterns (requires OPENAI_API_KEY)
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [tx, md5]
+            default: tx
+      responses:
+        "200":
+          description: AI analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiAnalysisResponse"
+
+  /telegram/chats:
+    get:
+      operationId: getTelegramChats
+      tags: [taixiu]
+      summary: List subscribed Telegram chats
+      responses:
+        "200":
+          description: List of chats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TelegramChat"
+
+  /telegram/broadcast:
+    post:
+      operationId: postTelegramBroadcast
+      tags: [taixiu]
+      summary: Broadcast prediction to all subscribed chats
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramBroadcastInput"
+      responses:
+        "200":
+          description: Broadcast result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramBroadcastResult"
+
+  /telegram/webhook-info:
+    get:
+      operationId: getTelegramWebhookInfo
+      tags: [taixiu]
+      summary: Get Telegram webhook status
+      responses:
+        "200":
+          description: Webhook info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramWebhookInfo"
+
+  /telegram/setup-webhook:
+    post:
+      operationId: postTelegramSetupWebhook
+      tags: [taixiu]
+      summary: Register Telegram webhook
+      responses:
+        "200":
+          description: Setup result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  webhookUrl:
+                    type: string
+
+  /taixiu/prediction:
+    get:
+      operationId: getTaixiuPrediction
+      tags: [taixiu]
+      summary: Get 3-method prediction for the next session
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [tx, md5]
+            default: tx
+      responses:
+        "200":
+          description: Three-method prediction result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionResponse"
+
+  /taixiu/top:
+    get:
+      operationId: getTaixiuTop
+      tags: [taixiu]
+      summary: Get top leaderboard data
+      responses:
+        "200":
+          description: Top leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopData"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +218,245 @@ components:
       required:
         - status
 
+    SessionResult:
+      type: object
+      required: [sessionId, dice, sum, result, startTime, endTime, gameType]
+      properties:
+        sessionId:
+          type: integer
+        dice:
+          type: array
+          items:
+            type: integer
+        sum:
+          type: integer
+        result:
+          type: string
+          enum: [tai, xiu, bao]
+        startTime:
+          type: integer
+        endTime:
+          type: integer
+        gameType:
+          type: string
+          enum: [tx, md5]
+
+    TaixiuStats:
+      type: object
+      required: [tx, md5]
+      properties:
+        tx:
+          $ref: "#/components/schemas/GameStats"
+        md5:
+          $ref: "#/components/schemas/GameStats"
+
+    GameStats:
+      type: object
+      required: [total, taiCount, xiuCount, baoCount, taiPercent, xiuPercent, baoPercent, avgSum, mostCommonSum, lastUpdated]
+      properties:
+        total:
+          type: integer
+        taiCount:
+          type: integer
+        xiuCount:
+          type: integer
+        baoCount:
+          type: integer
+        taiPercent:
+          type: number
+        xiuPercent:
+          type: number
+        baoPercent:
+          type: number
+        avgSum:
+          type: number
+        mostCommonSum:
+          type: integer
+        lastUpdated:
+          type: integer
+
+    AlgorithmVote:
+      type: object
+      required: [name, nameVi, vote, weight]
+      properties:
+        name:
+          type: string
+        nameVi:
+          type: string
+        vote:
+          type: string
+          enum: [tai, xiu, none]
+        weight:
+          type: number
+
+    PatternAnalysis:
+      type: object
+      required: [currentStreak, streakType, streakCount, recentPattern, suggestion, confidence, sumDistribution, algorithms, totalSessions]
+      properties:
+        currentStreak:
+          type: integer
+        streakType:
+          type: string
+          enum: [tai, xiu, bao, none]
+        streakCount:
+          type: integer
+        recentPattern:
+          type: array
+          items:
+            type: string
+        suggestion:
+          type: string
+          enum: [tai, xiu, none]
+        confidence:
+          type: number
+        sumDistribution:
+          type: array
+          items:
+            $ref: "#/components/schemas/SumCount"
+        algorithms:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlgorithmVote"
+        totalSessions:
+          type: integer
+          description: Total accumulated sessions used for learning
+
+    SumCount:
+      type: object
+      required: [sum, count]
+      properties:
+        sum:
+          type: integer
+        count:
+          type: integer
+
+    AiAnalysisResponse:
+      type: object
+      required: [gameType, available, prediction, confidence]
+      properties:
+        gameType:
+          type: string
+          enum: [tx, md5]
+        available:
+          type: boolean
+        message:
+          type: string
+          nullable: true
+        analysis:
+          type: string
+          nullable: true
+        prediction:
+          type: string
+          enum: [tai, xiu, none]
+        confidence:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        reasoning:
+          type: string
+          nullable: true
+
+    PredictionItem:
+      type: object
+      required: [id, name, nameVi, description, prediction, confidence]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        nameVi:
+          type: string
+        description:
+          type: string
+        prediction:
+          type: string
+          enum: [tai, xiu, none]
+        confidence:
+          type: number
+        predictedSum:
+          type: integer
+        predictedDice:
+          type: array
+          items:
+            type: integer
+
+    PredictionResponse:
+      type: object
+      required: [gameType, predictions]
+      properties:
+        gameType:
+          type: string
+          enum: [tx, md5]
+        predictions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PredictionItem"
+
+    TopData:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopEntry"
+
+    TopEntry:
+      type: object
+      required: [rank, name, score]
+      properties:
+        rank:
+          type: integer
+        name:
+          type: string
+        score:
+          type: number
+
+    TelegramChat:
+      type: object
+      required: [chatId, gameType, active]
+      properties:
+        chatId:
+          type: number
+        chatTitle:
+          type: string
+          nullable: true
+        gameType:
+          type: string
+          enum: [tx, md5]
+        active:
+          type: boolean
+        createdAt:
+          type: string
+
+    TelegramBroadcastInput:
+      type: object
+      properties:
+        gameType:
+          type: string
+          enum: [tx, md5]
+          default: tx
+
+    TelegramBroadcastResult:
+      type: object
+      required: [ok, sent]
+      properties:
+        ok:
+          type: boolean
+        sent:
+          type: integer
+
+    TelegramWebhookInfo:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+        result:
+          type: object
+          properties:
+            url:
+              type: string
+            has_custom_certificate:
+              type: boolean
+            pending_update_count:
+              type: integer

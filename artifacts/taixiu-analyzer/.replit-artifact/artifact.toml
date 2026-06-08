@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Phân Tích Tài Xỉu"
+version = "1.0.0"
+id = "artifacts/taixiu-analyzer"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19774
+
+[services.development]
+run = "pnpm --filter @workspace/taixiu-analyzer run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/taixiu-analyzer", "run", "build" ]
+publicDir = "artifacts/taixiu-analyzer/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19774"
+BASE_PATH = "/"
